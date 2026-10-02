@@ -120,7 +120,5 @@ The review metric reflects collected reviews; flaw analysis samples up to `MAX_R
 **No CSV reviews found:** Check `DATASET_PATH`, confirm the CSV has a supported review-text column, and ensure product metadata or review text contains category keywords.
 
 **Start the app from the project directory:** Streamlit and `.env` loading use the current working directory.
+project.
 
-## License
-
-No license is included. Choose and add a license before publishing if you want to specify how others may use the project.
