@@ -25,7 +25,7 @@ META_COLS = ["name", "title", "Title", "product_title", "categories", "category"
 RATING_COLS = ["reviews.rating", "rating", "Rating", "overall", "Score", "stars", "star_rating"]
 
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-MAX_REVIEWS = int(os.getenv("MAX_REVIEWS", "120"))
+MAX_REVIEWS = min(150, max(1, int(os.getenv("MAX_REVIEWS", "150"))))
 MAX_REVIEW_CHARS = int(os.getenv("MAX_REVIEW_CHARS", "240"))
 MAX_COMPETITOR_CHARS = int(os.getenv("MAX_COMPETITOR_CHARS", "6000"))
 DEFAULT_DATASET = os.getenv("DATASET_PATH", "")
@@ -246,6 +246,7 @@ def flaw_finder_node(state: TrendReconState) -> dict:
 
     # Deterministic sampling makes reruns reproducible and bounds prompt size.
     sample_size = min(MAX_REVIEWS, len(reviews))
+    reviews = reviews[:sample_size]
     seed = int(hashlib.sha256(category.lower().encode()).hexdigest()[:8], 16)
     sample = random.Random(seed).sample(reviews, sample_size)
     sample = [str(review).strip()[:MAX_REVIEW_CHARS] for review in sample]
