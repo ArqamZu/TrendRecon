@@ -16,88 +16,37 @@ st.set_page_config(
 load_dotenv()
 
 
-def get_setting(name: str) -> str:
-    value = os.getenv(name, "")
-    if value:
-        return value
-    try:
-        return str(st.secrets[name])
-    except Exception:
-        return ""
+import os
+from pathlib import Path
 
+import gdown
 
-api_key = get_setting("GOOGLE_API_KEY")
-if not api_key:
-    st.error("Set GOOGLE_API_KEY in your `.env` file or Streamlit Cloud Secrets.")
+# Download the public Drive CSV once per app instance, before graph_engine is imported.
+drive_file_id = "1KgzvkI-0sgdeyGRlv9kP98WhoC3pP2P6"
+dataset_path = Path("/tmp/trendrecon_reviews.csv")
+
+if not dataset_path.is_file() or dataset_path.stat().st_size == 0:
+    downloaded = gdown.download(
+        id=drive_file_id,
+        output=str(dataset_path),
+        quiet=False,
+    )
+    if not downloaded or not dataset_path.is_file() or dataset_path.stat().st_size == 0:
+        st.error("Could not download the public Google Drive dataset.")
+        st.stop()
+
+with dataset_path.open("rb") as dataset_file:
+    header = dataset_file.read(512).lstrip().lower()
+
+if header.startswith((b"<!doctype html", b"<html")):
+    dataset_path.unlink(missing_ok=True)
+    st.error("Google Drive returned a webpage, not a CSV. Check the file sharing settings.")
     st.stop()
 
-os.environ["GOOGLE_API_KEY"] = api_key
+os.environ["DATASET_PATH"] = str(dataset_path)
 
-dataset_url = get_setting("DATASET_URL")
-if dataset_url and not os.getenv("DATASET_PATH"):
-    cache_id = hashlib.sha256(dataset_url.encode("utf-8")).hexdigest()[:16]
-    dataset_path = Path("/tmp") / f"trendrecon-{cache_id}.csv"
-    partial_path = dataset_path.with_suffix(".part")
-
-    if not dataset_path.exists():
-        try:
-            with requests.get(dataset_url, stream=True, timeout=(20, 180)) as response:
-                response.raise_for_status()
-                with partial_path.open("wb") as output:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            output.write(chunk)
-
-            start = partial_path.read_bytes()[:512].lstrip().lower()
-            if start.startswith((b"<!doctype html", b"<html")):
-                raise ValueError(
-                    "DATASET_URL returned an HTML page, not the CSV. "
-                    "Configure a direct download URL."
-                )
-
-            partial_path.replace(dataset_path)
-        except Exception as exc:
-            partial_path.unlink(missing_ok=True)
-            st.error(f"Could not download the review dataset: {exc}")
-            st.stop()
-
-    os.environ["DATASET_PATH"] = str(dataset_path)
-
-# Import only after DATASET_PATH and GOOGLE_API_KEY are configured.
+# Import after setting DATASET_PATH; graph_engine reads it at import time.
 from graph_engine import DEFAULT_DATASET, graph  # noqa: E402
-
-dataset_url = os.getenv("DATASET_URL")
-if not dataset_url:
-    try:
-        dataset_url = st.secrets["DATASET_URL"]
-    except (KeyError, FileNotFoundError):
-        dataset_url = ""
-
-if dataset_url and not os.getenv("DATASET_PATH"):
-    cache_name = hashlib.sha256(dataset_url.encode("utf-8")).hexdigest()[:16]
-    dataset_path = Path("/tmp") / f"trendrecon-{cache_name}.csv"
-
-    if not dataset_path.exists():
-        partial_path = dataset_path.with_suffix(".part")
-        try:
-            with requests.get(dataset_url, stream=True, timeout=(20, 120)) as response:
-                response.raise_for_status()
-                with partial_path.open("wb") as output:
-                    for chunk in response.iter_content(chunk_size=1024 * 1024):
-                        if chunk:
-                            output.write(chunk)
-
-            if partial_path.read_bytes()[:512].lstrip().lower().startswith(
-                (b"<!doctype html", b"<html")
-            ):
-                raise ValueError("The dataset URL returned an HTML page, not a CSV.")
-
-            partial_path.replace(dataset_path)
-        except Exception:
-            partial_path.unlink(missing_ok=True)
-            raise
-
-    os.environ["DATASET_PATH"] = str(dataset_path)
 
 st.markdown(
     """
