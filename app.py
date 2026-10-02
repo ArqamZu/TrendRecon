@@ -4,6 +4,15 @@ from html import escape
 import streamlit as st
 from dotenv import load_dotenv
 
+import hashlib
+import os
+from pathlib import Path
+
+import requests
+import streamlit as st
+
+from graph_engine import DEFAULT_DATASET, graph  # noqa: E402
+
 st.set_page_config(
     page_title="TrendRecon | Product Intelligence",
     page_icon="◈",
@@ -29,7 +38,38 @@ if not api_key:
     st.stop()
 
 from graph_engine import DEFAULT_DATASET, graph  # noqa: E402
+dataset_url = os.getenv("DATASET_URL")
+if not dataset_url:
+    try:
+        dataset_url = st.secrets["DATASET_URL"]
+    except (KeyError, FileNotFoundError):
+        dataset_url = ""
 
+if dataset_url and not os.getenv("DATASET_PATH"):
+    cache_name = hashlib.sha256(dataset_url.encode("utf-8")).hexdigest()[:16]
+    dataset_path = Path("/tmp") / f"trendrecon-{cache_name}.csv"
+
+    if not dataset_path.exists():
+        partial_path = dataset_path.with_suffix(".part")
+        try:
+            with requests.get(dataset_url, stream=True, timeout=(20, 120)) as response:
+                response.raise_for_status()
+                with partial_path.open("wb") as output:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            output.write(chunk)
+
+            if partial_path.read_bytes()[:512].lstrip().lower().startswith(
+                (b"<!doctype html", b"<html")
+            ):
+                raise ValueError("The dataset URL returned an HTML page, not a CSV.")
+
+            partial_path.replace(dataset_path)
+        except Exception:
+            partial_path.unlink(missing_ok=True)
+            raise
+
+    os.environ["DATASET_PATH"] = str(dataset_path)
 
 st.markdown(
     """
