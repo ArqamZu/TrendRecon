@@ -220,7 +220,7 @@ st.markdown(
 with st.form("analysis_form"):
     category = st.text_input(
         "Product category",
-        placeholder="e.g. Ergonomic office chairs",
+        placeholder="e.g. Green Tea",
         help="A specific category helps focus review analysis and competitor research.",
     )
 
