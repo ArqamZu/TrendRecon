@@ -1,7 +1,7 @@
 import hashlib
 import os
 from pathlib import Path
-
+from html import escape
 import requests
 import streamlit as st
 from dotenv import load_dotenv
