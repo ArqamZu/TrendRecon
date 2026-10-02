@@ -1,17 +1,10 @@
-import os
-from html import escape
-
-import streamlit as st
-from dotenv import load_dotenv
-
 import hashlib
 import os
 from pathlib import Path
 
 import requests
 import streamlit as st
-
-from graph_engine import DEFAULT_DATASET, graph  # noqa: E402
+from dotenv import load_dotenv
 
 st.set_page_config(
     page_title="TrendRecon | Product Intelligence",
@@ -22,22 +15,57 @@ st.set_page_config(
 
 load_dotenv()
 
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    try:
-        api_key = st.secrets["GOOGLE_API_KEY"]
-        os.environ["GOOGLE_API_KEY"] = api_key
-    except (KeyError, FileNotFoundError):
-        pass
 
+def get_setting(name: str) -> str:
+    value = os.getenv(name, "")
+    if value:
+        return value
+    try:
+        return str(st.secrets[name])
+    except Exception:
+        return ""
+
+
+api_key = get_setting("GOOGLE_API_KEY")
 if not api_key:
-    st.error(
-        "Gemini API key not found. Configure `GOOGLE_API_KEY` "
-        "in your `.env` file or Streamlit Secrets."
-    )
+    st.error("Set GOOGLE_API_KEY in your `.env` file or Streamlit Cloud Secrets.")
     st.stop()
 
+os.environ["GOOGLE_API_KEY"] = api_key
+
+dataset_url = get_setting("DATASET_URL")
+if dataset_url and not os.getenv("DATASET_PATH"):
+    cache_id = hashlib.sha256(dataset_url.encode("utf-8")).hexdigest()[:16]
+    dataset_path = Path("/tmp") / f"trendrecon-{cache_id}.csv"
+    partial_path = dataset_path.with_suffix(".part")
+
+    if not dataset_path.exists():
+        try:
+            with requests.get(dataset_url, stream=True, timeout=(20, 180)) as response:
+                response.raise_for_status()
+                with partial_path.open("wb") as output:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if chunk:
+                            output.write(chunk)
+
+            start = partial_path.read_bytes()[:512].lstrip().lower()
+            if start.startswith((b"<!doctype html", b"<html")):
+                raise ValueError(
+                    "DATASET_URL returned an HTML page, not the CSV. "
+                    "Configure a direct download URL."
+                )
+
+            partial_path.replace(dataset_path)
+        except Exception as exc:
+            partial_path.unlink(missing_ok=True)
+            st.error(f"Could not download the review dataset: {exc}")
+            st.stop()
+
+    os.environ["DATASET_PATH"] = str(dataset_path)
+
+# Import only after DATASET_PATH and GOOGLE_API_KEY are configured.
 from graph_engine import DEFAULT_DATASET, graph  # noqa: E402
+
 dataset_url = os.getenv("DATASET_URL")
 if not dataset_url:
     try:
