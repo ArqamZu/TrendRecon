@@ -201,7 +201,7 @@ with st.sidebar:
         '<div class="brand"><span class="brand-mark">◈</span> TrendRecon</div>',
         unsafe_allow_html=True,
     )
-    st.markdown('<div class="sidebar-label">Your workflow</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-label">The workflow</div>', unsafe_allow_html=True)
     st.markdown(
         """
         <div class="sidebar-step"><span>01</span> Review evidence</div>
