@@ -6,3 +6,4 @@ langgraph>=0.2
 langchain-google-genai>=2.0
 ddgs>=6.0
 requests>=2.31
+gdown>=5.2
