@@ -26,7 +26,7 @@ The usual run makes two Gemini calls: one for flaw analysis and one for the spec
 Clone the repository and open its directory:
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
+git clone <https://github.com/ArqamZu/TrendRecon.git>
 cd Langchain-project
 ```
 
